@@ -1,4 +1,4 @@
-# CS231n
+# CS231n (Convolutional Neural Networks for Visual Recognition)
 
 ## Background
 This repository contains my homework from Stanford's 2017 offering of cs231n that can be found at: http://cs231n.stanford.edu/2017/ 
