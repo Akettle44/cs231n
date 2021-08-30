@@ -68,9 +68,8 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    v = config["momentum"] * v - (config["learning_rate"] * dw)
+    next_w = w + v
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -106,8 +105,15 @@ def rmsprop(w, dw, config=None):
     # config['cache'].                                                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    grad_sqrd, decay = config["cache"], config["decay_rate"]
+    lr, eps = config["learning_rate"], config["epsilon"]
 
-    pass
+    #implement rmsprop and update weights
+    grad_sqrd = decay * grad_sqrd + (1 - decay) * dw**2
+    next_w = w - (lr * dw) / (np.sqrt(grad_sqrd) + eps)
+
+    #update config
+    config["cache"] = grad_sqrd
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -151,9 +157,26 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    b1, b2 = config["beta1"], config["beta2"]
+    lr, eps = config["learning_rate"], config["epsilon"]
+    m, v, t = config["m"], config["v"], config["t"]
 
-    pass
+    #move t forward before calculations
+    t += 1
 
+    #calculate moments and biases
+    first_moment = b1 * m + (1 - b1) * dw
+    second_moment = b2 * v + (1 - b2) * dw**2
+    first_unbias = first_moment / (1 - (b1**t))
+    second_unbias = second_moment / (1 - (b2**t))
+
+    #perform weight update
+    next_w = w - (lr * first_unbias) / (np.sqrt(second_unbias) + eps)
+
+    #update config
+    config["m"] = first_moment
+    config["v"] = second_moment
+    config["t"] = t
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
