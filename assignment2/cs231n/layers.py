@@ -228,9 +228,41 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        #using kratzert blog post forward pass because his backwards pass was 
+        #more intuitive when building the computational graph
 
-        pass
+        #forward pass through computational graph
 
+        #calculate mean
+        mean = np.mean(x, axis = 0)
+        
+        #preamble to variance
+        sub_x = x - mean
+
+        #forward through variance
+        x_sq = sub_x**2
+
+        #variance 
+        var = np.sum(x_sq, axis=0) / N
+
+        #standard deviation
+        std = np.sqrt(var + eps)
+
+        #invert standard deviation to prep multiplication
+        inv_std = 1. / std
+
+        #x_hat normalization 
+        x_hat = inv_std * sub_x
+
+        #scale and shift using gamma and beta, respectively 
+        gx_hat = x_hat * gamma
+        out = gx_hat + beta
+
+        #update cache, running mean and running var
+        cache = (x, sub_x, var, std, inv_std, x_hat, eps, gamma)
+
+        running_mean = momentum *  running_mean + (1 - momentum) * mean
+        running_var = momentum * running_var + (1 - momentum) * var
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
         #                           END OF YOUR CODE                          #
@@ -243,9 +275,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Store the result in the out variable.                               #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        out = (x - running_mean) / (np.sqrt(running_var) + eps)
+        out = out * gamma + beta
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
         #                          END OF YOUR CODE                           #
@@ -284,9 +315,47 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, sub_x, var, std, inv_std, x_hat, eps, gamma = cache
+    
+    N, D = x.shape
 
-    pass
+    #backwards pass
 
+    #x_hat multiplication node
+    d_xh = dout * gamma
+    
+    #subtraction node input 1
+    d_sub_x1 = d_xh * inv_std
+    
+    #invert node
+    d_inv_std = np.sum(d_xh * sub_x, axis=0)
+
+    #sqaure root node
+    d_sqr = d_inv_std * (-1. / (std**2))
+
+    #sum of sub_x node
+    d_var = d_sqr * (1. / (2 * np.sqrt(var + eps)))
+
+    #squared node
+    d_sqd = (1. / N) * d_var * np.ones((N, D))
+
+    #subtraction node input 2
+    d_sub_x2 = 2 * sub_x * d_sqd
+
+    #input node 1
+    d_x1 = d_sub_x1 + d_sub_x2
+
+    #sum x node
+    d_sm = -1 * np.sum(d_sub_x1 + d_sub_x2, axis = 0)
+
+    #input node 2
+    d_x2 = (1. / N) * np.ones((N, D)) * d_sm
+
+    #multiple inputs sum to final x gradient
+    dx = d_x1 + d_x2
+
+    dbeta = np.sum(dout, axis=0)
+    dgamma = np.sum(dout * x_hat, axis=0)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
