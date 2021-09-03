@@ -73,29 +73,16 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        #stack layers to make loops easier to handle
+        layers = np.hstack([input_dim, hidden_dims, num_classes])
+        
         for i in range(0, self.num_layers):
           W = "W" + str(i+1)
           b = "b" + str(i+1)
 
-          ### TODO
-          #could rewrite this by hstacking input, hiddens, and num_classes to
-          #make it more concise, do it as an exercise later
-
-          #first layer takes input dim
-          if(i == 0):
-            self.params[W] = np.random.normal(loc=0.0, scale=weight_scale, 
-            size=(input_dim, hidden_dims[i]))
-            self.params[b] = np.zeros(hidden_dims[i])
-          #last layer
-          elif(i == self.num_layers-1):
-            self.params[W] = np.random.normal(loc=0.0, scale=weight_scale, 
-            size=(hidden_dims[i-1], num_classes))
-            self.params[b] = np.zeros(num_classes)
-          #every layer after the first one
-          else:
-            self.params[W] = np.random.normal(loc=0.0, scale=weight_scale, 
-            size=(hidden_dims[i-1], hidden_dims[i]))
-            self.params[b] = np.zeros(hidden_dims[i])
+          self.params[W] = np.random.normal(loc=0.0, scale=weight_scale, 
+            size=(layers[i], layers[i+1]))
+          self.params[b] = np.zeros(layers[i+1])
 
         #print([x.shape for x in self.params.values()])
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -169,32 +156,23 @@ class FullyConnectedNet(object):
         # layer, etc.                                                              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        caches = {}
+        caches = []
         W = None
         b = None
-        l_count = 0
+        x = X
 
-        for i in range(0, self.num_layers):
+        for i in range(0, self.num_layers-1):
           W = "W" + str(i+1)
           b = "b" + str(i+1)
 
-          #handle first layer condition
-          if(i == 0):
-            #affine layer
-            scores, caches[l_count] = affine_forward(X, self.params[W], self.params[b])
-            l_count+=1
-            scores, caches[l_count] = relu_forward(scores)
-          elif(i == self.num_layers - 1):
-            scores, caches[l_count] = affine_forward(scores, self.params[W], self.params[b])
-          else: #successive layers
-            scores, caches[l_count] = affine_forward(scores, self.params[W], self.params[b])
-            l_count+=1
-            #relu layer
-            scores, caches[l_count] = relu_forward(scores)
-          l_count+=1
+          x, cache = affine_relu_forward(x, self.params[W], self.params[b])
+          caches.append(cache)
 
-        #preserve final layer count
-        l_count-=1
+        W = "W" + str(self.num_layers)
+        b = "b" + str(self.num_layers)
+        scores, cache = affine_forward(x, self.params[W], self.params[b])
+        caches.append(cache)
+
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -229,19 +207,13 @@ class FullyConnectedNet(object):
           if('W' in j):
             loss += self.reg * 0.5 * np.sum(self.params[j]**2)
 
+        #backwards through last affine layer
+        W,b = "W" + str(self.num_layers), "b" + str(self.num_layers)
+        dx, grads[W], grads[b] = affine_backward(dx_scores, caches[self.num_layers - 1])
+
         #begin backwards pass
-        for i in reversed(range(0, self.num_layers)):
-          if(i == self.num_layers - 1):
-            #backwards through last affine layer
-            dx, grads["W" + str(i + 1)], grads["b" + str(i + 1)] = affine_backward(dx_scores, caches[l_count])
-          else:
-            #backwards through relu then affine
-            dx = relu_backward(dx, caches[l_count])
-            l_count-=1
-            dx, grads["W" + str(i + 1)], grads["b" + str(i + 1)] = affine_backward(dx, caches[l_count])
-
-          l_count-=1
-
+        for i in reversed(range(0, self.num_layers - 1)):
+          dx, grads["W" + str(i + 1)], grads["b" + str(i + 1)] = affine_relu_backward(dx, caches[i])    
 
         for j in grads.keys():
           if('W' in j):
