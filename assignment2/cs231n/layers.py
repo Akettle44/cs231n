@@ -199,12 +199,17 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     mode = bn_param["mode"]
     eps = bn_param.get("eps", 1e-5)
     momentum = bn_param.get("momentum", 0.9)
+    layernorm = bn_param.get("layernorm", 0)
 
     N, D = x.shape
     running_mean = bn_param.get("running_mean", np.zeros(D, dtype=x.dtype))
     running_var = bn_param.get("running_var", np.zeros(D, dtype=x.dtype))
 
     out, cache = None, None
+
+    # Set axis depending on whether batchnorm or layernorm is being used
+    axis = 0 if layernorm == 0 else 1
+
     if mode == "train":
         #######################################################################
         # TODO: Implement the training-time forward pass for batch norm.      #
@@ -259,10 +264,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         out = gx_hat + beta
 
         #update cache, running mean and running var
-        cache = (x, sub_x, var, std, inv_std, x_hat, eps, gamma)
+        cache = (x, sub_x, var, std, inv_std, x_hat, eps, gamma, axis)
 
-        running_mean = momentum *  running_mean + (1 - momentum) * mean
-        running_var = momentum * running_var + (1 - momentum) * var
+        if(layernorm == 0):
+          running_mean = momentum *  running_mean + (1 - momentum) * mean
+          running_var = momentum * running_var + (1 - momentum) * var
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
         #                           END OF YOUR CODE                          #
@@ -315,7 +321,7 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-    x, sub_x, var, std, inv_std, x_hat, eps, gamma = cache
+    x, sub_x, var, std, inv_std, x_hat, eps, gamma, axis = cache
     
     N, D = x.shape
 
@@ -346,7 +352,7 @@ def batchnorm_backward(dout, cache):
     d_x1 = d_sub_x1 + d_sub_x2
 
     #sum x node
-    d_sm = -1 * np.sum(d_sub_x1 + d_sub_x2, axis = 0)
+    d_sm = -1 * np.sum(d_sub_x1 + d_sub_x2, axis=0)
 
     #input node 2
     d_x2 = (1. / N) * np.ones((N, D)) * d_sm
@@ -354,8 +360,8 @@ def batchnorm_backward(dout, cache):
     #multiple inputs sum to final x gradient
     dx = d_x1 + d_x2
 
-    dbeta = np.sum(dout, axis=0)
-    dgamma = np.sum(dout * x_hat, axis=0)
+    dbeta = np.sum(dout, axis=axis)
+    dgamma = np.sum(dout * x_hat, axis=axis)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -390,7 +396,7 @@ def batchnorm_backward_alt(dout, cache):
 
     #used blog post found at https://kevinzakka.github.io/2016/09/14/batch_normalization/
     #to help me derive these functions, thank you for posting that kevin!
-    x, sub_x, var, std, inv_std, x_hat, eps, gamma = cache
+    x, sub_x, var, std, inv_std, x_hat, eps, gamma, _ = cache
     N, D = x.shape
 
     #simplifies x expression
@@ -444,8 +450,14 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    ln_param["mode"] = "train"
+    ln_param["layernorm"] = 1
 
-    pass
+    # call batchnorm but transpose X to work over features instead
+    out, cache = batchnorm_forward(x.T, gamma.reshape(-1, 1),
+          beta.reshape(-1, 1), ln_param)
+    # regain original shape
+    out = out.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -479,7 +491,10 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx, dgamma, dbeta = batchnorm_backward(dout.T, cache)
+
+    dx = dx.T
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

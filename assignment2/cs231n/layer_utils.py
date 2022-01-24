@@ -28,7 +28,52 @@ def affine_relu_backward(dout, cache):
 
 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-pass
+def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param, norm_type):
+    """ Convinience layer that performs an affine transform, batch normalization, 
+    and then a ReLU 
+
+    Inputs:
+    - x: Input to the affine layer
+    - w, b: weights for the affine layer
+    - gamma: scaling parameter for batchnorm
+    - beta: shifting parameter for batchnorm
+    - bn_param: other parameters associated with batchnorm
+    """
+
+    fc_cache = bn_cache = relu_cache = None
+
+    if(norm_type == "batchnorm"):
+      a_out, fc_cache = affine_forward(x, w, b)
+      b_out, bn_cache = batchnorm_forward(a_out, gamma, beta, bn_param)
+      out, relu_cache = relu_forward(b_out)
+    elif(norm_type == "layernorm"):
+      a_out, fc_cache = affine_forward(x, w, b)
+      b_out, bn_cache = layernorm_forward(a_out, gamma, beta, bn_param)
+      out, relu_cache = relu_forward(b_out)
+    else:
+      print("Must select a valid forward normalization type")
+
+    cache = (fc_cache, bn_cache, relu_cache)
+
+    return out, cache
+
+def affine_batch_relu_backward(dout, cache, norm_type):
+    """Backward pass for affine - batchnorm - relu convenience layer """
+
+    fc_cache, bn_cache, relu_cache = cache
+    
+    if(norm_type == "batchnorm"):
+      dr = relu_backward(dout, relu_cache)
+      dx, dg, dbe = batchnorm_backward(dr, bn_cache)
+      dx, dw, db = affine_backward(dx, fc_cache)
+    elif(norm_type == "layernorm"):
+      dr = relu_backward(dout, relu_cache)
+      dx, dg, dbe = layernorm_backward(dr, bn_cache)
+      dx, dw, db = affine_backward(dx, fc_cache)
+    else:
+      print("Must select a valid backwards initialization type")
+
+    return dx, dw, db, dg, dbe
 
 # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 

@@ -84,6 +84,10 @@ class FullyConnectedNet(object):
             size=(layers[i], layers[i+1]))
           self.params[b] = np.zeros(layers[i+1])
 
+          if(self.normalization != None and i != self.num_layers - 1):
+            self.params[("gamma" + str(i+1))] = np.ones(layers[i+1])
+            self.params[("beta" + str(i+1))] = np.zeros(layers[i+1])
+
         #print([x.shape for x in self.params.values()])
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -165,7 +169,14 @@ class FullyConnectedNet(object):
           W = "W" + str(i+1)
           b = "b" + str(i+1)
 
-          x, cache = affine_relu_forward(x, self.params[W], self.params[b])
+          if(self.normalization != None):
+            ga = "gamma" + str(i+1)
+            be = "beta" + str(i+1)
+            x, cache = affine_batch_relu_forward(x, self.params[W],
+              self.params[b], self.params[ga], self.params[be], self.bn_params[i], self.normalization)
+          else:
+            x, cache = affine_relu_forward(x, self.params[W], self.params[b])
+            
           caches.append(cache)
 
         W = "W" + str(self.num_layers)
@@ -213,7 +224,15 @@ class FullyConnectedNet(object):
 
         #begin backwards pass
         for i in reversed(range(0, self.num_layers - 1)):
-          dx, grads["W" + str(i + 1)], grads["b" + str(i + 1)] = affine_relu_backward(dx, caches[i])    
+          W = "W" + str(i + 1)
+          b = "b" + str(i + 1)
+
+          if(self.normalization == "batchnorm"):
+            g = "gamma" + str(i + 1)
+            be = "beta" + str(i + 1)
+            dx, grads[W], grads[b], grads[g], grads[be] = affine_batch_relu_backward(dx, caches[i], self.normalization) 
+          else:
+            dx, grads[W], grads[b] = affine_relu_backward(dx, caches[i])   
 
         for j in grads.keys():
           if('W' in j):
