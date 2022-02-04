@@ -15,22 +15,58 @@ def affine_relu_forward(x, w, b):
     """
     a, fc_cache = affine_forward(x, w, b)
     out, relu_cache = relu_forward(a)
+
     cache = (fc_cache, relu_cache)
+    
+    return out, cache
+
+def affine_relu_dropout_forward(x, w, b, dropout_param):
+    """Convenience layer that performs an affine transform followed by a ReLU and dropout.
+
+    Inputs:
+    - x: Input to the affine layer
+    - w, b: Weights for the affine layer
+    - dropout_param: Input to dropout layer
+
+    Returns a tuple of:
+    - out: Output from the ReLU
+    - cache: Object to give to the backward pass
+    """
+    a, fc_cache = affine_forward(x, w, b)
+    out, relu_cache = relu_forward(a)
+    out, dropout_cache = dropout_forward(out, dropout_param)
+
+    cache = (fc_cache, relu_cache, dropout_cache)
+    
     return out, cache
 
 def affine_relu_backward(dout, cache):
     """Backward pass for the affine-relu convenience layer.
     """
     fc_cache, relu_cache = cache
+
     da = relu_backward(dout, relu_cache)
+    dx, dw, db = affine_backward(da, fc_cache)
+
+    return dx, dw, db
+
+def affine_relu_dropout_backward(dout, cache):
+    """Backward pass for the affine-relu-dropout convenience layer.
+    """
+    fc_cache, relu_cache, dropout_cache = cache
+
+    ddo = dropout_backward(dout, dropout_cache)
+    da = relu_backward(ddo, relu_cache)
     dx, dw, db = affine_backward(da, fc_cache)
     return dx, dw, db
 
+
 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param, norm_type):
+def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param, 
+    norm_type):
     """ Convinience layer that performs an affine transform, batch normalization, 
-    and then a ReLU 
+    ReLU
 
     Inputs:
     - x: Input to the affine layer
@@ -57,6 +93,39 @@ def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param, norm_type):
 
     return out, cache
 
+def affine_batch_relu_dropout_forward(x, w, b, gamma, beta, bn_param, 
+    norm_type, dropout_param):
+    """ Convinience layer that performs an affine transform, batch normalization, 
+    ReLU and adds dropout 
+
+    Inputs:
+    - x: Input to the affine layer
+    - w, b: weights for the affine layer
+    - gamma: scaling parameter for batchnorm
+    - beta: shifting parameter for batchnorm
+    - bn_param: other parameters associated with batchnorm
+    - dropout_param: input to dropout layer
+    """
+
+    fc_cache = bn_cache = relu_cache = None
+
+    if(norm_type == "batchnorm"):
+      a_out, fc_cache = affine_forward(x, w, b)
+      b_out, bn_cache = batchnorm_forward(a_out, gamma, beta, bn_param)
+      out, relu_cache = relu_forward(b_out)
+    elif(norm_type == "layernorm"):
+      a_out, fc_cache = affine_forward(x, w, b)
+      b_out, bn_cache = layernorm_forward(a_out, gamma, beta, bn_param)
+      out, relu_cache = relu_forward(b_out)
+    else:
+      print("Must select a valid forward normalization type")
+
+    out, dropout_cache = dropout_forward(out, dropout_param)
+    cache = (fc_cache, bn_cache, relu_cache, dropout_cache)
+
+    return out, cache
+
+
 def affine_batch_relu_backward(dout, cache, norm_type):
     """Backward pass for affine - batchnorm - relu convenience layer """
 
@@ -68,6 +137,26 @@ def affine_batch_relu_backward(dout, cache, norm_type):
       dx, dw, db = affine_backward(dx, fc_cache)
     elif(norm_type == "layernorm"):
       dr = relu_backward(dout, relu_cache)
+      dx, dg, dbe = layernorm_backward(dr, bn_cache)
+      dx, dw, db = affine_backward(dx, fc_cache)
+    else:
+      print("Must select a valid backwards initialization type")
+
+    return dx, dw, db, dg, dbe
+
+def affine_batch_relu_backward_dropout(dout, cache, norm_type):
+    """Backward pass for affine - batchnorm - relu - dropout convenience layer """
+
+    fc_cache, bn_cache, relu_cache, dropout_cache = cache
+    
+    ddo = dropout_backward(dout, dropout_cache)
+
+    if(norm_type == "batchnorm"):
+      dr = relu_backward(ddo, relu_cache)
+      dx, dg, dbe = batchnorm_backward(dr, bn_cache)
+      dx, dw, db = affine_backward(dx, fc_cache)
+    elif(norm_type == "layernorm"):
+      dr = relu_backward(ddo, relu_cache)
       dx, dg, dbe = layernorm_backward(dr, bn_cache)
       dx, dw, db = affine_backward(dx, fc_cache)
     else:

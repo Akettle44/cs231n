@@ -172,10 +172,19 @@ class FullyConnectedNet(object):
           if(self.normalization != None):
             ga = "gamma" + str(i+1)
             be = "beta" + str(i+1)
-            x, cache = affine_batch_relu_forward(x, self.params[W],
-              self.params[b], self.params[ga], self.params[be], self.bn_params[i], self.normalization)
+            if(self.use_dropout):
+              x, cache = affine_batch_relu_dropout_forward(x, self.params[W],
+                self.params[b], self.params[ga], self.params[be], self.bn_params[i],
+                self.normalization, self.dropout_param)
+            else:
+              x, cache = affine_batch_relu_forward(x, self.params[W],
+                self.params[b], self.params[ga], self.params[be], self.bn_params[i],
+                self.normalization)
           else:
-            x, cache = affine_relu_forward(x, self.params[W], self.params[b])
+            if(self.use_dropout):
+              x, cache = affine_relu_dropout_forward(x, self.params[W], self.params[b], self.dropout_param)
+            else:
+              x, cache = affine_relu_forward(x, self.params[W], self.params[b])
             
           caches.append(cache)
 
@@ -230,9 +239,16 @@ class FullyConnectedNet(object):
           if(self.normalization == "batchnorm"):
             g = "gamma" + str(i + 1)
             be = "beta" + str(i + 1)
-            dx, grads[W], grads[b], grads[g], grads[be] = affine_batch_relu_backward(dx, caches[i], self.normalization) 
+
+            if(self.use_dropout):
+              dx, grads[W], grads[b], grads[g], grads[be] = affine_batch_relu_dropout_backward(dx, caches[i], self.normalization) 
+            else:
+              dx, grads[W], grads[b], grads[g], grads[be] = affine_batch_relu_backward(dx, caches[i], self.normalization) 
           else:
-            dx, grads[W], grads[b] = affine_relu_backward(dx, caches[i])   
+            if(self.use_dropout):
+              dx, grads[W], grads[b] = affine_relu_dropout_backward(dx, caches[i]) 
+            else:
+              dx, grads[W], grads[b] = affine_relu_backward(dx, caches[i])   
 
         for j in grads.keys():
           if('W' in j):
